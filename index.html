@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Gestão de Estacionamentos</title>
+    <!-- Tailwind CSS para Estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS para ler arquivos Excel (.xls / .xlsx / .csv) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800">
+
+    <!-- Cabeçalho -->
+    <header class="bg-slate-900 text-white py-6 px-8 shadow-md border-b-4 border-blue-600">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">Painel de Gestão Operacional & Financeira</h1>
+                <p class="text-slate-400 text-sm">Acompanhamento de Faturamento, Metas e Provisionamento</p>
+            </div>
+            <span class="bg-blue-600/20 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full border border-blue-500/30">GitHub Pages Ready</span>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-6 space-y-6">
+
+        <!-- Área de Upload de Arquivos -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Upload 1: Resultado -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">1. Relatório de Resultado (.xls / .xlsx)</label>
+                <input type="file" id="fileResultado" accept=".xls,.xlsx,.csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
+                <p class="text-xs text-slate-400 mt-2">Envie o relatório sintético gerado pelo sistema.</p>
+            </div>
+
+            <!-- Upload 2: Metas & Provisionamento -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">2. Planilha de Metas e Provisionamento (Opcional)</label>
+                <input type="file" id="fileMetas" accept=".xls,.xlsx,.csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"/>
+                <p class="text-xs text-slate-400 mt-2">Colunas: <code>CodGaragem, MetaRotativo, MetaMensal, Provisionado, Consumido</code></p>
+            </div>
+        </section>
+
+        <!-- Cartões de KPIs -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpiContainer">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+                <p class="text-xs font-bold text-slate-400 uppercase">Faturamento Total</p>
+                <p class="text-2xl font-extrabold text-slate-900 mt-1" id="kpiFat">R$ 0,00</p>
+                <p class="text-xs font-semibold text-emerald-600 mt-1" id="kpiFatSub">-</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+                <p class="text-xs font-bold text-slate-400 uppercase">Volume de Veículos</p>
+                <p class="text-2xl font-extrabold text-slate-900 mt-1" id="kpiQtd">0</p>
+                <p class="text-xs font-semibold text-slate-500 mt-1">Rotativo + Mensalistas</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+                <p class="text-xs font-bold text-slate-400 uppercase">Ticket Médio Geral</p>
+                <p class="text-2xl font-extrabold text-slate-900 mt-1" id="kpiTM">R$ 0,00</p>
+                <p class="text-xs font-semibold text-blue-600 mt-1" id="kpiTMRot">Rotativo: R$ 0,00</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+                <p class="text-xs font-bold text-slate-400 uppercase">Provisionamento Consumido</p>
+                <p class="text-2xl font-extrabold text-slate-900 mt-1" id="kpiProv">R$ 0,00</p>
+                <p class="text-xs font-semibold text-slate-500 mt-1" id="kpiProvSub">-</p>
+            </div>
+        </section>
+
+        <!-- Tabela Principal -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="font-bold text-slate-800">Desempenho por Empreendimento</h2>
+                <span class="text-xs bg-slate-100 text-slate-600 font-medium px-2.5 py-1 rounded-md" id="txtTotalGaragens">0 Unidades</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-600">
+                    <thead class="bg-slate-900 text-white font-semibold uppercase">
+                        <tr>
+                            <th class="p-3">Empreendimento</th>
+                            <th class="p-3 text-right">Fat. Rotativo</th>
+                            <th class="p-3 text-right">Meta Rot.</th>
+                            <th class="p-3 text-center">% Rot.</th>
+                            <th class="p-3 text-right">Fat. Mensal</th>
+                            <th class="p-3 text-right">Meta Mensal</th>
+                            <th class="p-3 text-center">% Mens.</th>
+                            <th class="p-3 text-right">Fat. Total</th>
+                            <th class="p-3 text-right">Meta Total</th>
+                            <th class="p-3 text-center">% Meta</th>
+                            <th class="p-3 text-right">Provisionado</th>
+                            <th class="p-3 text-right">Consumido</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="12" class="p-8 text-center text-slate-400">Aguardando importação da planilha de resultados...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Script de Processamento e Lógica -->
+    <script>
+        let dadosResultado = [];
+        let dadosMetas = {};
+
+        const fmtMoeda = (val) => (val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const fmtNum = (val) => (val || 0).toLocaleString('pt-BR');
+
+        // Evento de Leitura da Planilha de Resultados
+        document.getElementById('fileResultado').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet);
+
+                dadosResultado = json.map(r => {
+                    const cod = r['Cód Garagem'] || r['CodGaragem'] || 0;
+                    const rot = parseFloat(r['Vlr.Rotativo'] || 0);
+                    const fat = parseFloat(r['Vlr. Faturado'] || 0);
+                    const porto = parseFloat(r['Vlr. Porto Seguro'] || 0);
+                    const selo = parseFloat(r['Vlr. Selo'] || 0);
+                    const spev = parseFloat(r['Vlr. Spev'] || 0);
+                    const mensal = parseFloat(r['Vlr. Mensal'] || 0);
+                    const totalFat = rot + fat + porto + selo + spev + mensal;
+
+                    const qtdRot = parseInt(r['Qtd. Rotativo'] || 0);
+                    const qtdMensal = parseInt(r['Qtd. Mensal'] || 0);
+                    const qtdTotal = qtdRot + qtdMensal + parseInt(r['Qtd. Faturado'] || 0) + parseInt(r['Qtd. Porto Seguro'] || 0) + parseInt(r['Qtd. Selo'] || 0) + parseInt(r['Qtd. Spev'] || 0);
+
+                    return {
+                        cod: cod,
+                        nome: r['Desc Garagem'] || r['Nome Garagem'] || 'Sem Nome',
+                        vlrRotativo: rot,
+                        vlrMensal: mensal,
+                        vlrTotal: totalFat,
+                        qtdRotativo: qtdRot,
+                        qtdTotal: qtdTotal
+                    };
+                });
+
+                renderizarDashboard();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // Evento de Leitura da Planilha de Metas
+        document.getElementById('fileMetas').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet);
+
+                dadosMetas = {};
+                json.forEach(m => {
+                    const cod = m['Cód Garagem'] || m['CodGaragem'] || m['COD'];
+                    if (cod) {
+                        dadosMetas[cod] = {
+                            metaRotativo: parseFloat(m['MetaRotativo'] || m['Meta Rotativo'] || 0),
+                            metaMensal: parseFloat(m['MetaMensal'] || m['Meta Mensal'] || 0),
+                            provisionado: parseFloat(m['Provisionado'] || 0),
+                            consumido: parseFloat(m['Consumido'] || 0)
+                        };
+                    }
+                });
+
+                renderizarDashboard();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function getBadge(pct) {
+            if (!pct) return `<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold">-</span>`;
+            if (pct >= 100) return `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">${pct.toFixed(1)}%</span>`;
+            if (pct >= 90) return `<span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">${pct.toFixed(1)}%</span>`;
+            return `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">${pct.toFixed(1)}%</span>`;
+        }
+
+        function renderizarDashboard() {
+            if (dadosResultado.length === 0) return;
+
+            let tbody = '';
+            let totFat = 0, totQtd = 0, totRot = 0, totQtdRot = 0, totMensal = 0;
+            let totMetaRot = 0, totMetaMensal = 0, totProv = 0, totCons = 0;
+
+            dadosResultado.forEach(r => {
+                const m = dadosMetas[r.cod] || { metaRotativo: 0, metaMensal: 0, provisionado: 0, consumido: 0 };
+                const metaTotal = m.metaRotativo + m.metaMensal;
+
+                const pctRot = m.metaRotativo > 0 ? (r.vlrRotativo / m.metaRotativo) * 100 : 0;
+                const pctMensal = m.metaMensal > 0 ? (r.vlrMensal / m.metaMensal) * 100 : 0;
+                const pctTotal = metaTotal > 0 ? (r.vlrTotal / metaTotal) * 100 : 0;
+
+                totFat += r.vlrTotal;
+                totQtd += r.qtdTotal;
+                totRot += r.vlrRotativo;
+                totQtdRot += r.qtdRotativo;
+                totMensal += r.vlrMensal;
+
+                totMetaRot += m.metaRotativo;
+                totMetaMensal += m.metaMensal;
+                totProv += m.provisionado;
+                totCons += m.consumido;
+
+                tbody += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100">
+                        <td class="p-3 font-semibold text-slate-800">${r.nome}</td>
+                        <td class="p-3 text-right">${fmtMoeda(r.vlrRotativo)}</td>
+                        <td class="p-3 text-right text-slate-400">${fmtMoeda(m.metaRotativo)}</td>
+                        <td class="p-3 text-center">${getBadge(pctRot)}</td>
+                        <td class="p-3 text-right">${fmtMoeda(r.vlrMensal)}</td>
+                        <td class="p-3 text-right text-slate-400">${fmtMoeda(m.metaMensal)}</td>
+                        <td class="p-3 text-center">${getBadge(pctMensal)}</td>
+                        <td class="p-3 text-right font-bold text-slate-900">${fmtMoeda(r.vlrTotal)}</td>
+                        <td class="p-3 text-right text-slate-400">${fmtMoeda(metaTotal)}</td>
+                        <td class="p-3 text-center">${getBadge(pctTotal)}</td>
+                        <td class="p-3 text-right">${fmtMoeda(m.provisionado)}</td>
+                        <td class="p-3 text-right">${fmtMoeda(m.consumido)}</td>
+                    </tr>
+                `;
+            });
+
+            // Linha Totalizadora
+            const metaTotalGeral = totMetaRot + totMetaMensal;
+            tbody += `
+                <tr class="bg-blue-50 font-bold text-slate-900 border-t-2 border-blue-600">
+                    <td class="p-3">TOTAL CONSOLIDADO</td>
+                    <td class="p-3 text-right">${fmtMoeda(totRot)}</td>
+                    <td class="p-3 text-right">${fmtMoeda(totMetaRot)}</td>
+                    <td class="p-3 text-center">${getBadge(totMetaRot > 0 ? (totRot/totMetaRot)*100 : 0)}</td>
+                    <td class="p-3 text-right">${fmtMoeda(totMensal)}</td>
+                    <td class="p-3 text-right">${fmtMoeda(totMetaMensal)}</td>
+                    <td class="p-3 text-center">${getBadge(totMetaMensal > 0 ? (totMensal/totMetaMensal)*100 : 0)}</td>
+                    <td class="p-3 text-right text-blue-700">${fmtMoeda(totFat)}</td>
+                    <td class="p-3 text-right">${fmtMoeda(metaTotalGeral)}</td>
+                    <td class="p-3 text-center">${getBadge(metaTotalGeral > 0 ? (totFat/metaTotalGeral)*100 : 0)}</td>
+                    <td class="p-3 text-right">${fmtMoeda(totProv)}</td>
+                    <td class="p-3 text-right">${fmtMoeda(totCons)}</td>
+                </tr>
+            `;
+
+            document.getElementById('tableBody').innerHTML = tbody;
+
+            // Atualiza KPIs
+            document.getElementById('kpiFat').innerText = fmtMoeda(totFat);
+            document.getElementById('kpiFatSub').innerText = metaTotalGeral > 0 ? `Meta: ${fmtMoeda(metaTotalGeral)} (${((totFat/metaTotalGeral)*100).toFixed(1)}%)` : 'Sem meta carregada';
+            document.getElementById('kpiQtd').innerText = fmtNum(totQtd);
+            document.getElementById('kpiTM').innerText = fmtMoeda(totQtd > 0 ? totFat / totQtd : 0);
+            document.getElementById('kpiTMRot').innerText = `Rotativo: ${fmtMoeda(totQtdRot > 0 ? totRot / totQtdRot : 0)}`;
+            document.getElementById('kpiProv').innerText = fmtMoeda(totCons);
+            document.getElementById('kpiProvSub').innerText = totProv > 0 ? `Previsto: ${fmtMoeda(totProv)} (${((totCons/totProv)*100).toFixed(1)}%)` : 'Sem provisionamento';
+            document.getElementById('txtTotalGaragens').innerText = `${dadosResultado.length} Unidades`;
+        }
+    </script>
+</body>
+</html>
